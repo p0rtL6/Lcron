@@ -12,7 +12,7 @@
                         </div>
                     </v-card-text>
                     <v-card-actions>
-                        <v-btn disabled text color="primary"> Edlt </v-btn>
+                        <v-btn disabled text color="primary"> Edit </v-btn>
                         <v-btn @click="delJob(id)" text color="red">
                             Delete
                         </v-btn>
