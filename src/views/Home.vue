@@ -1,31 +1,19 @@
 <template>
     <v-container>
-        <v-row no-gutters>
-            <v-col><h1 class="text-h2 font-weight-bold">Dashboard</h1></v-col>
-        </v-row>
-        <v-divider class="my-4"></v-divider>
-        <v-row v-for="job in jobs" v-bind:key="job.id"
+        <v-row v-for="(job, id) in jobs" v-bind:key="id"
             ><v-col>
                 <v-card class="mx-auto" max-width="344">
                     <v-card-text>
                         <div>{{ job.link }}</div>
                         <p class="text-h4 text--primary">{{ job.title }}</p>
-                        <p>Every {{ job.weekday.join(", ") }}</p>
+                        <p>Every {{ job.days }}</p>
                         <div class="text--primary">
-                            {{ tConvert(job.time) }}
+                            {{ tConvert(`${job.hrs}:${job.mins}`) }}
                         </div>
                     </v-card-text>
                     <v-card-actions>
-                        <v-btn text color="primary"> Edit </v-btn>
-                        <v-btn
-                            @click="
-                                jobs = jobs.filter(
-                                    jobQuery => !job.id == jobQuery.id
-                                )
-                            "
-                            text
-                            color="red"
-                        >
+                        <v-btn disabled text color="primary"> Edit </v-btn>
+                        <v-btn @click="delJob(id)" text color="red">
                             Delete
                         </v-btn>
                     </v-card-actions>
@@ -109,14 +97,14 @@
                                                 <v-spacer></v-spacer>
                                                 <v-btn
                                                     text
-                                                    color="primary"
+                                                    color="primary darken-1"
                                                     @click="modal2 = false"
                                                 >
                                                     Cancel
                                                 </v-btn>
                                                 <v-btn
                                                     text
-                                                    color="primary"
+                                                    color="primary darken-1"
                                                     @click="
                                                         $refs.dialog.save(time)
                                                     "
@@ -131,10 +119,18 @@
                         </v-card-text>
                         <v-card-actions>
                             <v-spacer></v-spacer>
-                            <v-btn color="blue darken-1" text @click="cancel">
+                            <v-btn
+                                color="primary darken-1"
+                                text
+                                @click="cancel"
+                            >
                                 Cancel
                             </v-btn>
-                            <v-btn color="blue darken-1" text @click="validate">
+                            <v-btn
+                                color="primary darken-1"
+                                text
+                                @click="validate"
+                            >
                                 Add
                             </v-btn>
                         </v-card-actions>
@@ -163,7 +159,8 @@
 export default {
     data() {
         return {
-            jobs: [],
+            counter: 0,
+            jobs: window.electron.getJobs(),
             link: null,
             time: null,
             menu2: false,
@@ -194,14 +191,19 @@ export default {
             }
         },
         handleJob(title, weekday, time, link) {
-            this.jobs.push({
+            this.clearInput();
+            window.electron.handleCronJob({
                 title: title,
                 weekday: weekday,
                 time: time,
                 link: link,
-                id: this.jobs.length,
+                id: Object.keys(this.jobs).length,
             });
-            this.clearInput();
+            this.jobs = window.electron.getJobs();
+        },
+        delJob(id) {
+            window.electron.delJob(id);
+            this.jobs = window.electron.getJobs();
         },
         clearInput() {
             this.title = null;

@@ -1,38 +1,106 @@
 "use strict";
 
-import { app, protocol, BrowserWindow } from "electron";
+import {
+    app,
+    protocol,
+    BrowserWindow,
+    screen,
+    systemPreferences,
+    ipcMain,
+    Tray,
+    Menu,
+} from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
 import installExtension, { VUEJS_DEVTOOLS } from "electron-devtools-installer";
 const isDevelopment = process.env.NODE_ENV !== "production";
-
+const path = require("path");
+const open = require("open");
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
     { scheme: "app", privileges: { secure: true, standard: true } },
 ]);
 
+function createTray(window) {
+    let appIcon = new Tray(path.join(__static, "Lcron.ico"));
+    const contextMenu = Menu.buildFromTemplate([
+        {
+            label: "Show",
+            click: function () {
+                window.show();
+            },
+        },
+        {
+            label: "Exit",
+            click: function () {
+                app.isQuiting = true;
+                app.quit();
+            },
+        },
+    ]);
+
+    appIcon.on("click", function () {
+        window.show();
+    });
+
+    appIcon.setToolTip("Lcron");
+    appIcon.setContextMenu(contextMenu);
+    return appIcon;
+}
+
 async function createWindow() {
+    const display = screen.getPrimaryDisplay();
+    const width = display.workAreaSize.width;
+    const height = display.workAreaSize.height;
     // Create the browser window.
     const win = new BrowserWindow({
         width: 400,
         height: 600,
+        x: width - 410,
+        y: height - 610,
         frame: false,
         resizable: false,
+        transparent: true,
+        title: "Lcron",
+        icon: path.join(__static, "Lcron.ico"),
         webPreferences: {
             // Use pluginOptions.nodeIntegration, leave this alone
             // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
             nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
             contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION,
+            preload: path.join(__static, "preload.js"),
         },
     });
 
     if (process.env.WEBPACK_DEV_SERVER_URL) {
         // Load the url of the dev server if in development mode
         await win.loadURL(process.env.WEBPACK_DEV_SERVER_URL);
-        if (!process.env.IS_TEST) win.webContents.openDevTools();
+        // if (!process.env.IS_TEST) win.webContents.openDevTools();
     } else {
         createProtocol("app");
         // Load the index.html when not in development
         win.loadURL("app://./index.html");
+    }
+
+    let tray = null;
+    win.on("minimize", function (event) {
+        win.setSkipTaskbar(true);
+        tray = createTray(win);
+    });
+
+    win.on("restore", function () {
+        win.show();
+        win.setSkipTaskbar(false);
+        tray.destroy();
+    });
+
+    ipcMain.on("closeButton", event => {
+        win.minimize();
+        event.returnValue = true;
+    });
+
+    let isSingleInstance = app.requestSingleInstanceLock();
+    if (!isSingleInstance) {
+        app.quit();
     }
 }
 
@@ -80,3 +148,61 @@ if (isDevelopment) {
         });
     }
 }
+
+ipcMain.on("getAccentColor", event => {
+    event.returnValue = systemPreferences.getAccentColor();
+});
+
+// Cron Handler
+
+const fs = require("fs");
+const cron = require("node-cron");
+const jobs = {};
+
+const data = JSON.parse(fs.readFileSync(path.join(__static, "data.json")));
+
+function writeData() {
+    fs.writeFileSync(path.join(__static, "data.json"), JSON.stringify(data));
+}
+
+function addJob(id, args) {
+    jobs[id] = cron.schedule(
+        `${args.mins} ${args.hrs} * * ${args.days}`,
+        () => {
+            console.log(`opening ${args.link}`);
+            open(args.link);
+        }
+    );
+    jobs[id].start();
+}
+
+for (const id in data) {
+    addJob(id, data[id]);
+}
+
+ipcMain.on("handleCronJob", (event, args) => {
+    const hrs = args.time.substr(0, 2);
+    const mins = args.time.substr(3, 5);
+    const days = args.weekday.map(weekday => weekday.substr(0, 3)).join();
+    data[args.id] = {
+        title: args.title,
+        link: args.link,
+        days: days,
+        hrs: hrs,
+        mins: mins,
+    };
+    addJob(args.id, data[args.id]);
+    writeData();
+    event.returnValue = true;
+});
+
+ipcMain.on("getJobs", event => {
+    event.returnValue = data;
+});
+
+ipcMain.on("delJob", (event, id) => {
+    jobs[id].stop();
+    delete data[id];
+    writeData();
+    event.returnValue = true;
+});
