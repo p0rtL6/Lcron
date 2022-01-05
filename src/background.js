@@ -1,5 +1,7 @@
 "use strict";
 
+const isDevelopment = process.env.NODE_ENV !== "production";
+
 import {
   app,
   protocol,
@@ -11,12 +13,20 @@ import {
   Menu,
   dialog,
 } from "electron";
+
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
 import installExtension, { VUEJS_DEVTOOLS } from "electron-devtools-installer";
-const isDevelopment = process.env.NODE_ENV !== "production";
+
+const storage = require("electron-json-storage");
+const cron = require("node-cron");
 const path = require("path");
 const open = require("open");
-// Scheme must be registered before the app is ready
+const fs = require("fs");
+
+let jobs;
+let data;
+let config;
+
 protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { secure: true, standard: true } },
 ]);
@@ -160,14 +170,6 @@ ipcMain.on("getAccentColor", (event) => {
 
 // Cron Handler
 
-const storage = require("electron-json-storage");
-const cron = require("node-cron");
-const fs = require("fs");
-
-let jobs;
-let data;
-let config;
-
 function loadData() {
   storage.setDataPath();
   config = storage.getSync("Config");
@@ -181,8 +183,6 @@ function loadData() {
     addJob(id, data[id]);
   }
 }
-
-loadData();
 
 function writeData() {
   storage.set("Jobs", data, (error) => {
@@ -268,3 +268,5 @@ ipcMain.on("shareDialog", async function (event) {
   }
   event.returnValue = true;
 });
+
+loadData();

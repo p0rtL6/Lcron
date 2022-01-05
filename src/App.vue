@@ -51,9 +51,6 @@ export default {
 
 <style>
 .main {
-  /* margin-top: 56px;
-    padding: 0 !important;
-    max-height: 544px; */
   max-height: 600px;
   overflow-y: auto;
 }
@@ -72,14 +69,4 @@ export default {
   width: 0;
   height: 0;
 }
-/* *::-webkit-scrollbar-thumb {
-    background: #263238;
-    border-radius: 10px;
-}
-*::-webkit-scrollbar-thumb:hover {
-    background: #37474f;
-}
-*::-webkit-scrollbar-track {
-    background: transparent;
-} */
 </style>
