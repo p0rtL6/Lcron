@@ -9,6 +9,7 @@ import {
   ipcMain,
   Tray,
   Menu,
+  dialog,
 } from "electron";
 import { createProtocol } from "vue-cli-plugin-electron-builder/lib";
 import installExtension, { VUEJS_DEVTOOLS } from "electron-devtools-installer";
@@ -69,6 +70,7 @@ async function createWindow() {
       // See nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration for more info
       nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
       contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION,
+      enableRemoteModule: true,
       // eslint-disable-next-line no-undef
       preload: path.join(__static, "preload.js"),
     },
@@ -158,12 +160,29 @@ ipcMain.on("getAccentColor", (event) => {
 
 // Cron Handler
 
-const cron = require("node-cron");
-const jobs = {};
-
 const storage = require("electron-json-storage");
+const cron = require("node-cron");
+const fs = require("fs");
 
-const data = storage.getSync("Jobs");
+let jobs;
+let data;
+let config;
+
+function loadData() {
+  storage.setDataPath();
+  config = storage.getSync("Config");
+  storage.setDataPath(config.dataPath);
+  for (const job in jobs) {
+    jobs[job].stop();
+  }
+  jobs = {};
+  data = storage.getSync("Jobs");
+  for (const id in data) {
+    addJob(id, data[id]);
+  }
+}
+
+loadData();
 
 function writeData() {
   storage.set("Jobs", data, (error) => {
@@ -176,10 +195,6 @@ function addJob(id, args) {
     open(args.link);
   });
   jobs[id].start();
-}
-
-for (const id in data) {
-  addJob(id, data[id]);
 }
 
 ipcMain.on("handleCronJob", (event, args) => {
@@ -206,5 +221,50 @@ ipcMain.on("delJob", (event, id) => {
   jobs[id].stop();
   delete data[id];
   writeData();
+  event.returnValue = true;
+});
+
+ipcMain.handle("showDialog", async () => {
+  const pathName = await dialog.showOpenDialog({
+    properties: ["openDirectory"],
+  });
+  return pathName.canceled ? null : pathName.filePaths[0];
+});
+
+ipcMain.on("getDefaultPath", (event) => {
+  event.returnValue = storage.getDefaultDataPath();
+});
+
+ipcMain.on("getCurrentPath", (event) => {
+  event.returnValue = storage.getDataPath();
+});
+
+ipcMain.on("setPath", (event, path) => {
+  storage.setDataPath();
+  storage.set("Config", { dataPath: path }, (error) => {
+    if (error) throw error;
+    loadData();
+  });
+  event.returnValue = true;
+});
+
+ipcMain.on("importFile", (event, file) => {
+  storage.set("Jobs", file, (error) => {
+    if (error) throw error;
+    loadData();
+  });
+  event.returnValue = true;
+});
+
+ipcMain.on("shareDialog", async function (event) {
+  let filename = await dialog.showSaveDialog(BrowserWindow.getFocusedWindow(), {
+    title: "Export Jobs",
+    filters: [{ name: "Jobs File", extensions: ["json"] }],
+  });
+  if (!filename.canceled) {
+    fs.writeFile(filename.filePath, JSON.stringify(data), (err) => {
+      if (err) throw err;
+    });
+  }
   event.returnValue = true;
 });
