@@ -13,10 +13,17 @@
           <v-card-actions>
             <v-btn @click="edit(job, id)" text color="primary"> Edit </v-btn>
             <v-btn @click="delJob(id)" text color="red"> Delete </v-btn>
+            <v-spacer></v-spacer>
+            <v-switch
+              inset
+              hide-details
+              v-model="job.toggled"
+              class="mt-0 pt-0"
+              @click="toggleJob(job, id)"
+            ></v-switch>
           </v-card-actions>
-        </v-card>
-      </v-col></v-row
-    >
+        </v-card> </v-col
+    ></v-row>
     <template>
       <v-row justify="center">
         <v-dialog v-model="dialog" persistent max-width="600px">
@@ -149,8 +156,18 @@ export default {
       weekday: null,
       title: null,
       snackbar: false,
-      items: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      items: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ],
       dialog: false,
+      toggled: true,
+      id: null,
     };
   },
   methods: {
@@ -166,20 +183,30 @@ export default {
         this.link != null
       ) {
         this.dialog = false;
-        this.handleJob(this.title, this.weekday, this.time, this.link);
+        this.handleJob(
+          this.title,
+          this.weekday,
+          this.time,
+          this.link,
+          this.toggled,
+          this.id
+        );
       } else {
         this.snackbar = true;
       }
     },
-    handleJob(title, weekday, time, link) {
+    handleJob(title, weekday, time, link, toggled, id) {
       this.clearInput();
       window.jobHandler.handleCronJob({
         title: title,
         weekday: weekday,
         time: time,
         link: link,
-        id: Object.keys(this.jobs).length,
+        id: id ? id : Object.keys(this.jobs).length,
+        toggled: toggled,
       });
+      this.toggled = true;
+      this.id = null;
       this.jobs = window.jobHandler.getJobs();
     },
     delJob(id) {
@@ -217,8 +244,14 @@ export default {
       });
       this.time = `${job.hrs}:${job.mins}`;
       this.link = job.link;
-      this.delJob(id);
+      this.toggled = job.toggled;
+      this.id = id;
+      // this.delJob(id);
       this.dialog = true;
+    },
+    toggleJob(job, id) {
+      window.jobHandler.toggleJob(id, job.toggled);
+      this.jobs = window.jobHandler.getJobs();
     },
   },
   name: "Home",

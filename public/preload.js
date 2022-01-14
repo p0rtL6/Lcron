@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("jobHandler", {
   handleCronJob: (args) => ipcRenderer.sendSync("handleCronJob", args),
   getJobs: () => ipcRenderer.sendSync("getJobs"),
   delJob: (id) => ipcRenderer.sendSync("delJob", id),
+  toggleJob: (id, state) => ipcRenderer.sendSync("toggleJob", id, state),
 });
 
 contextBridge.exposeInMainWorld("config", {

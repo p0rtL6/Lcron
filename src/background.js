@@ -207,6 +207,7 @@ ipcMain.on("handleCronJob", (event, args) => {
     days: days,
     hrs: hrs,
     mins: mins,
+    toggled: args.toggled,
   };
   addJob(args.id, data[args.id]);
   writeData();
@@ -221,6 +222,17 @@ ipcMain.on("delJob", (event, id) => {
   jobs[id].stop();
   delete data[id];
   writeData();
+  event.returnValue = true;
+});
+
+ipcMain.on("toggleJob", (event, id, state) => {
+  data[id].toggled = state;
+  writeData();
+  if (state) {
+    jobs[id].start();
+  } else {
+    jobs[id].stop();
+  }
   event.returnValue = true;
 });
 
